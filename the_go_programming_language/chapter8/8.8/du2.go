@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func walkDir(dir string, fileSize chan<- int64) {
@@ -30,18 +31,23 @@ func dirents(dir string) []os.FileInfo {
 func main() {
 
 	ch := make(chan int64)
+	tick := time.Tick(500 * time.Millisecond)
 	go func() {
 		walkDir("/home/", ch)
 		close(ch)
 	}()
 	var sumSize int64
+loop:
 	for {
-		size, ok := <-ch
-		if !ok {
-			break
+		select {
+		case size, ok := <-ch:
+			if !ok {
+				break loop
+			}
+			sumSize += size
+		case <-tick:
+			fmt.Printf("%f GB\n", float64(sumSize)/1e9)
 		}
-		sumSize += size
 	}
-	fmt.Printf("%.1f GB\n", float64(sumSize)/1e9)
-
+	fmt.Println("sum:", float64(sumSize)/1e9, "G")
 }
